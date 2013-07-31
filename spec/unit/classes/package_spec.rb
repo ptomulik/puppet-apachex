@@ -44,7 +44,7 @@ describe 'apachex::package', :type => :class do
         {
           :osfamily                   => 'Debian',
           :apachex_repo_versions      => "apache2 #{repo_versions}",
-          :apachex_installed_version  => '2.2.16-6+squeeze10',
+          :apachex_installed_version  => 'apache2 2.2.16-6+squeeze10',
         }
       end
       params = all_params_absent.clone
@@ -64,6 +64,7 @@ describe 'apachex::package', :type => :class do
       params['name'] = 'www/apache22'
       it { should contain_package('apache2').with(params) }
     end
+    # TODO: much more test for FreeBSD
   end
   context "on a RedHat OS" do
     let(:facts) do

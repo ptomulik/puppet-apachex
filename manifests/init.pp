@@ -47,8 +47,7 @@
 class apachex (
   $available_mpms   = $apachex::params::available_mpms,
   $include_package  = true,
-) {
-  include apachex::params
+) inherits apachex::params {
   Class['Apachex::Params'] -> Class['Apachex']
 
   if $include_package {

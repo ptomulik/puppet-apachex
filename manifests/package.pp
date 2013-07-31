@@ -101,12 +101,12 @@ class apachex::package (
 
   Class['apachex'] -> Class['apachex::package']
 
-  if $mpm and !member($apachex::available_mpms, $mpm) {
+  if $mpm and !($mpm in $apachex::available_mpms) {
     fail("Class [apachex::package]: MPM '${mpm}' is not available on this platform")
   }
 
   if $ensure and $ensure =~ /^2\.[0-9]+$/ {
-    $ensure_ver = split($ensure, '.')
+    $ensure_ver = split($ensure, '[.]')
     $ensure_minor = $ensure_ver[1]
   }
 
@@ -120,16 +120,34 @@ class apachex::package (
       'freebsd' : {
         if $ensure_minor {
           if $mpm and $ensure_minor < 4 {
-            $package_name = "www/apache2${ensure_minor}-${mpm}-mpm"
+            $package_name = $mpm ? {
+              prefork => "www/apache2${ensure_minor}",
+              default => "www/apache2${ensure_minor}-${mpm}-mpm"
+            }
           } else {
             $package_name = "www/apache2${ensure_minor}"
           }
-        } else {
-          $apache_name = 'apache22' # FIXME: it should not be hardcoded as such
-          if $mpm {
-            $package_name = "www/${apache_name}-${mpm}-mpm"
+        } elsif $::apachex_installed_version {
+          $installed_name_version = split($::apachex_installed_version, ' ')
+          # we can't simply do $package_name = $installed_name_version[0]
+          # because this would ignore changes in $mpm. 
+          $inst_ver = split($installed_name_version[1], '[.]')
+          if $mpm and $inst_ver[1] < 4 {
+            $package_name = $mpm ? {
+              prefork => "www/apache2${inst_ver[1]}",
+              default => "www/apache2${inst_ver[1]}-${mpm}-mpm"
+            }
           } else {
-            $package_name = "www/${apache_name}"
+            $package_name = "www/apache2${inst_ver[1]}"
+          }
+        } else {
+          if $mpm {
+            $package_name = $mpm ? {
+              prefork => "www/apache22",
+              default => "www/apache22-${mpm}-mpm"
+            }
+          } else {
+            $package_name = "www/apache22"
           }
         }
       }
@@ -145,7 +163,7 @@ class apachex::package (
   if $ensure_ver {
     if $::apachex_installed_version {
       $installed_name_version = split($::apachex_installed_version, ' ')
-      $inst_ver = split($installed_name_version[1], '.')
+      $inst_ver = split($installed_name_version[1], '[.]')
       if $inst_ver[0] == $ensure_ver[0] and $inst_ver[1] == $ensure_ver[1] {
         # this should keep installed package in current version and it works
         # with all providers
@@ -177,6 +195,37 @@ class apachex::package (
   } else {
     # $ensure is not in 2.X form
     $package_ensure = $ensure
+  }
+
+  if $::osfamily == 'FreeBSD' {
+    $all_packages = [
+      'www/apache22',
+      'www/apache22-worker-mpm',
+      'www/apache22-event-mpm',
+      'www/apache22-itk-mpm',
+      'www/apache22-peruser-mpm',
+      'www/apache24',
+    ]
+    $other_packages = delete($all_packages, $package_name)
+    # Configure ports to have apache module packages dependent on correct
+    # version of apache package (apache22, apache22-worker-mpm, ...)
+    file_line { 'APACHE_PORT in /etc/make.conf':
+      ensure => $package_ensure ? {
+        'absent' => 'absent',
+        'purged' => 'absent',
+        default  => 'present'
+      },
+      path   => '/etc/make.conf',
+      line   => "APACHE_PORT=${package_name}",
+      match  => "^\\s*#?\\s*APACHE_PORT\\s*=\\s*",
+      before => Package['apache2'],
+    }
+    # remove other packages
+    ensure_resource('package', $other_packages, {
+      ensure  => absent,
+      before  => Package['apache2'],
+      require => File_line['APACHE_PORT in /etc/make.conf'],
+    })
   }
 
   $all_params = {
