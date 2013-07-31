@@ -7,7 +7,14 @@ Facter.add(:apachex_installed_version, :timeout => 20) do
     when /Debian/
       names = ['apache2']
     when /FreeBSD/
-      names =  ['www/apache22', 'www/apache24']
+      names =  [
+        'www/apache22',
+        'www/apache22-event-mpm',
+        'www/apache22-itk-mpm',
+        'www/apache22-peruser-mpm',
+        'www/apache22-worker-mpm',
+        'www/apache24'
+      ]
     when /RedHat/
       names = ['httpd']
     end

@@ -198,15 +198,14 @@ class apachex::package (
   }
 
   if $::osfamily == 'FreeBSD' {
-    $all_packages = [
-      'www/apache22',
-      'www/apache22-worker-mpm',
-      'www/apache22-event-mpm',
-      'www/apache22-itk-mpm',
-      'www/apache22-peruser-mpm',
-      'www/apache24',
-    ]
-    $other_packages = delete($all_packages, $package_name)
+    if $installed_name_version and $installed_name_version[0] != $package_name {
+      # remove other package
+      ensure_resource('package', $installed_name_version[0], {
+        ensure  => absent,
+        before  => Package['apache2'],
+        require => File_line['APACHE_PORT in /etc/make.conf'],
+      })
+    }
     # Configure ports to have apache module packages dependent on correct
     # version of apache package (apache22, apache22-worker-mpm, ...)
     file_line { 'APACHE_PORT in /etc/make.conf':
@@ -220,12 +219,6 @@ class apachex::package (
       match  => "^\\s*#?\\s*APACHE_PORT\\s*=\\s*",
       before => Package['apache2'],
     }
-    # remove other packages
-    ensure_resource('package', $other_packages, {
-      ensure  => absent,
-      before  => Package['apache2'],
-      require => File_line['APACHE_PORT in /etc/make.conf'],
-    })
   }
 
   $all_params = {
