@@ -193,5 +193,5 @@ class apachex::package (
     uninstall_options => $uninstall_options,
   }
   $params = apachex_delete_undefs($all_params)
-  create_resources('package', { 'apache2' => $params} )
+  create_resources('package', {'apache2' => $params})
 }
