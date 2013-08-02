@@ -7,7 +7,7 @@ describe 'apachex_installed_version fact:', :type => :fact do
     'Debian'  => [ {:name => 'apache2', :ensure => '2.2.22-13'} ],
     'FreeBSD' => [ {:name => 'www/apache22', :ensure => '2.2.25'},
                    {:name => 'www/apache24', :ensure => '2.4.6'} ],
-    'RedHat'  => [ {:name => 'httpd', :ensure => '2.2.22-13'} ],
+    'RedHat'  => [ {:name => 'httpd', :ensure => '2.2.15-26.el6.centos'} ],
   }.each do |osfamily, pkgs|
     context "on #{osfamily}" do
       before :each do

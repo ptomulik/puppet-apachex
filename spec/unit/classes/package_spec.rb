@@ -17,11 +17,13 @@ describe 'apachex::package', :type => :class do
           'source'            => nil,
           'uninstall_options' => nil,
   }
+
   context "on a Debian OS" do
     repo_versions = '2.2.16-6+squeeze10 2.2.22-13 2.4.6-2'
     let :facts do
       {
         :osfamily                   => 'Debian',
+        :operatingsystem            => 'Debian',
         :apachex_repo_versions      => "apache2 #{repo_versions}",
         :apachex_installed_version  => nil,
       }
@@ -43,6 +45,7 @@ describe 'apachex::package', :type => :class do
       let :facts do
         {
           :osfamily                   => 'Debian',
+          :operatingsystem            => 'Debian',
           :apachex_repo_versions      => "apache2 #{repo_versions}",
           :apachex_installed_version  => 'apache2 2.2.16-6+squeeze10',
         }
@@ -53,10 +56,12 @@ describe 'apachex::package', :type => :class do
       it { should contain_package('apache2').with(expect) }
     end
   end
+
   context "on a FreeBSD OS" do
     let(:facts) do
       {
         :osfamily                   => 'FreeBSD',
+        :operatingsystem            => 'FreeBSD',
         :apachex_repo_versions      => nil,
         :apachex_installed_version  => nil,
       }
@@ -97,6 +102,7 @@ describe 'apachex::package', :type => :class do
         let :facts do
           {
             :osfamily                   => 'FreeBSD',
+            :operatingsystem            => 'FreeBSD',
             :apachex_repo_versions      => nil,
             :apachex_installed_version  => installed,
           }
@@ -118,16 +124,68 @@ describe 'apachex::package', :type => :class do
         it { should contain_file_line('APACHE_PORT in /etc/make.conf').with({'line' => "APACHE_PORT=#{package_name}"})}
       end
     end
+
+     # TODO: implement this test correctly
+#    context 'with $build_options={\'--SUEXEC\'=>\'on\'}' do
+#      let :facts do
+#        {
+#          :osfamily                   => 'FreeBSD',
+#          :operatingsystem            => 'FreeBSD',
+#          :apachex_repo_versions      => nil,
+#          :apachex_installed_version  => nil,
+#        }
+#      end
+#      let :params do { :build_options => {'--SUEXEC' => 'on' } } end
+#      exec_name = 'apachex::package apply build_options'
+#      exec_params = {
+#          'path'        => [ '/sbin', '/bin', '/usr/sbin', '/usr/bin',
+#                             '/usr/local/sbin', '/usr/local/bin' ],
+#          'command'     => "make config-default --SUEXEC=on",
+#          'cwd'         => "/usr/ports/www/apache22",
+#          'environment' => ['BATCH=y'],
+#          'before'      => Package['apache2'],
+#          'notify'      => Package['apache2'],
+#          'creates'     => '/var/db/ports/www_apache22/options'
+#      }
+#      it { should contain_exec(exec_name).with(exec_params) }
+#    end
   end
+
   context "on a RedHat OS" do
-    let(:facts) do
+    repo_versions = '2.2.15-26.el6.centos 2.2.15-28.el6.centos 2.4.4-6.el6.centos'
+    let :facts do
       {
-        :osfamily => 'RedHat'
+        :osfamily                   => 'RedHat',
+        :operatingsystem            => 'CentOS',
+        :apachex_repo_versions      => "httpd #{repo_versions}",
+        :apachex_installed_version  => nil,
       }
     end
     context "with all parameters default" do
       expect = all_params_absent.clone
       expect['name'] = 'httpd'
+      it { should contain_package('apache2').with(expect) }
+    end
+    context "with $ensure=2.2 and available versions #{repo_versions}" do
+      let :params do { 'ensure' => '2.2' } end
+      expect = all_params_absent.clone
+      expect['name']    = 'httpd'
+      expect['ensure']  = '2.2.15-28.el6.centos'
+      it { should contain_package('apache2').with(expect) }
+    end
+    context "with $ensure=2.2, available apache versions #{repo_versions} and apache 2.2.15-26.el6.centos already installed" do
+      let :params do { 'ensure' => '2.2' } end
+      let :facts do
+        {
+          :osfamily                   => 'RedHat',
+          :operatingsystem            => 'CentOS',
+          :apachex_repo_versions      => "httpd #{repo_versions}",
+          :apachex_installed_version  => 'httpd 2.2.15-26.el6.centos',
+        }
+      end
+      expect = all_params_absent.clone
+      expect['name']    = 'httpd'
+      expect['ensure']  = 'present'
       it { should contain_package('apache2').with(expect) }
     end
   end

@@ -1,4 +1,4 @@
-# == Class: apachex::instance
+# == Define: apachex::instance
 #
 # Apache server instance.
 #
@@ -6,9 +6,7 @@
 #
 # Document parameters here.
 #
-# [*sample_parameter*]
-#   Explanation of what this parameter affects and what it defaults to.
-#   e.g. "Specify one or more upstream ntp servers as an array."
+# [*instance_name*]
 #
 # === Variables
 #
@@ -37,6 +35,19 @@
 # Copyright 2013 Pawel Tomulik, unless otherwise noted.
 #
 define apachex::instance (
-  $provider = $package::provider
+  $conf_dir = undef,
+  $instance_name = $name,
 ){
+  validate_re($instance_name, '^[a-zA-Z][a-zA-Z0-9_]+$')
+
+
+  if !$conf_dir {
+    $base_dir = $::osfamily ? {
+      'FreBSD' => 'Instances',
+      default  => 'instances',
+    }
+    $instance_conf_dir = "${apache::conf_dir}/${base_dir}/${instance_name}"
+  } else {
+    $instance_conf_dir = $conf_dir
+  }
 }

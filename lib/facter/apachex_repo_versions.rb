@@ -6,7 +6,7 @@
 
 def debian_apachex_versions
   apt_cache = '/usr/bin/apt-cache'
-  if !File.executable?(apt_cache)
+  if not File.executable?(apt_cache)
     return nil
   end
   version_array = []
@@ -16,6 +16,28 @@ def debian_apachex_versions
     line_array = []
     result.each_line do |line|
       match = line.match(/^Version:\s*([^\s]+)\s*$/)
+      line_array += match.captures if match
+    end
+    if not line_array.empty?
+      line = package + ' ' + line_array.join(' ')
+      version_array.push(line)
+    end
+  end
+  return version_array.join("\n")
+end
+
+def redhat_apachex_versions
+  yum = '/usr/bin/yum'
+  if not File.executable?(yum)
+    return nil
+  end
+  version_array = []
+  packages = ['httpd']
+  packages.each do |package|
+    result = %x(#{yum} -d 0 -e 0 -y list #{package})
+    line_array = []
+    result.each_line do |line|
+      match = line.match(/^#{package}[^\s]*\s+([^\s]+)/)
       line_array += match.captures if match
     end
     if not line_array.empty?
@@ -37,8 +59,8 @@ Facter.add(:apachex_repo_versions, :timeout => 600) do
       # NOTE: not sure how to search ports ...
       versions = nil
     when /RedHat/
+      versions = redhat_apachex_versions
     else
-      # TODO: implement redhat_apachex_versions
       versions = nil
     end
   end

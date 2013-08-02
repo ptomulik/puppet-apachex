@@ -1,8 +1,8 @@
 require 'rspec-system/spec_helper'
 require 'rspec-system-puppet/helpers'
-require 'rspec-system-serverspec/helpers'
-include Serverspec::Helper::RSpecSystem
-include Serverspec::Helper::DetectOS
+#require 'rspec-system-serverspec/helpers'
+#include Serverspec::Helper::RSpecSystem
+#include Serverspec::Helper::DetectOS
 include RSpecSystemPuppet::Helpers
 
 RSpec.configure do |c|
@@ -18,6 +18,7 @@ RSpec.configure do |c|
   c.before :suite do
     # Install puppet
     puppet_install
+    puppet_master_install
 
     # Install modules and dependencies
     puppet_module_install(:source => proj_root, :module_name => 'apachex')
