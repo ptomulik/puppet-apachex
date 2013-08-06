@@ -10,3 +10,4 @@ project_page 'https://gitbub.com/ptomulik/puppet-apachex'
 ## Add dependencies, if any:
 dependency 'puppetlabs/stdlib', '>= 2.2.1'                                      
 dependency 'ripienaar/concat', '>= 0.2.0'                                       
+dependency 'ptomulik/bsdportconfig', '>= 0.1.2'

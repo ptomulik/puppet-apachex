@@ -24,5 +24,6 @@ RSpec.configure do |c|
     puppet_module_install(:source => proj_root, :module_name => 'apachex')
     shell('puppet module install ripienaar-concat')
     shell('puppet module install puppetlabs-stdlib')
+    shell('puppet module install ptomulik-bsdportconfig')
   end
 end

@@ -11,10 +11,26 @@
 # only the affected package's parameters and new parameters introduced
 # by +apachex::package+
 #
+# **Note**: on FreeBSD we assume, that ports are used to manage apache package.
+# Other providers are not supported. You should either set the default package
+# provider to be +ports+ or set +provider+ parameter here to be +'ports'+.
+# Otherwise your manifests may stop working.
+#
+#   [*bsd_ports_dir*]
+#     Relevant only on BSD systems. Defines location of the ports three.
+#     Defaults to +/usr/ports+ on FreeBSD and OpenBSD and +/usr/pkgsrc+ on
+#     NetBSD and to +undef+ on other systems.
+#
+#   [*bsd_port_dbdir*]
+#     Relevant only on BSD systems. Defines directory where the results of
+#     configuration OPTIONS are stored. Defaults to +/var/db/ports+.
+#
 #   [*build_options*]
 #     Options used when the apache package is built (for example in FreeBSD
 #     ports packages are built on target machine and are customizable via build
 #     options). The format of this argument depends on the agent's system.
+#
+#     On FreeBSD/ports 
 #
 #   [*ensure*]
 #     This has merely same effect as the *ensure* parameter to the +package+
@@ -49,14 +65,10 @@
 #     we must chose appropriate package with compiled-in MPM module).
 #     Apache +2.4+ and later support loadable MPMs.
 #
-#   [*bsd_ports_dir*]
-#     Relevant only on BSD systems. Defines location of the ports three.
-#     Defaults to +/usr/ports+ on FreeBSD and OpenBSD and +/usr/pkgsrc+ on
-#     NetBSD and to +undef+ on other systems.
-#
-#   [*bsd_port_dbdir*]
-#     Relevant only on BSD systems. Defines directory where the results of
-#     configurating OPTIONS are stored. Defaults to +/var/db/ports+.
+#   [*mpm_shared*]
+#     Whether to enable MPM as loadable module (DSO). Defaults to true.
+#     Relevant only for apache >= 2.4 on systems, where pre-compiled
+#     packages are not used (FreeBSD ports, for example).
 #
 # === Variables
 #
@@ -94,7 +106,7 @@
 #
 # === Copyright
 #
-# Copyright 2013 Pawel Tomulik, unless otherwise noted.
+# Copyright 2013 Pawel Tomulik.
 #
 class apachex::package (
   $adminfile = undef,
@@ -113,6 +125,7 @@ class apachex::package (
   $source = undef,
   $uninstall_options = undef,
   $mpm = undef,
+  $mpm_shared = true,
 ) {
 
   Class['apachex'] -> Class['apachex::package']
@@ -181,13 +194,6 @@ class apachex::package (
     }
   }
 
-  # $bsd_port_dbname
-  case $::osfamily {
-    'FreeBSD', 'OpenBSD', 'NetBSD' : { 
-      $bsd_port_dbname = regsubst($package_name,'[^a-zA-Z0-9_]','_')
-    }
-  }
-
   # set $package_ensure
   if $ensure_ver {
     if $installed_ver and $installed_ver[0] == $ensure_ver[0] and $installed_ver[1] == $ensure_ver[1] {
@@ -220,53 +226,61 @@ class apachex::package (
     $package_ensure = $ensure
   }
 
-  # handle $bsd_ports_dir
-  if $bsd_ports_dir {
-    $package_bsd_ports_dir = $bsd_ports_dir
-  } else {
-    $package_bsd_ports_dir = $::operatingsystem ? {
-      'FreeBSD' => "/usr/ports",
-      'OpenBSD' => "/usr/ports",
-      'NetBSD'  => "/usr/pkgsrc",
-      default   => undef
-    }
-  }
-
-  # handle $bsd_port_dbdir
-  if $bsd_port_dbdir {
-    $package_bsd_port_dbdir = $bsd_port_dbdir
-  } else {
-    $package_bsd_port_dbdir = '/var/db/ports'
-  }
-
   # handle $build_options
   if $build_options {
     case $::osfamily {
       'FreeBSD' : {
-        fail('build options not implemented yet')
-        # TODO: implement this path
-#        validate_hash($build_options)
-#
-#        $make_mpm_options = ""
-#        $make_user_options = join_keys_to_values($build_options, '=')
-#        $make_options = "${make_user_options}${make_mpm_options}"
-#        # FIXME: get rid of exec(s), develop resource for ports configuration
-#        # FIXME: config should be ran only if $ensure is not 'absent'/'purge'?
-#        # FIXME: config should be ran only if:
-#        #        1. apache is not installed
-#        #        2. $make_options differ from thes options for currently
-#        #           installed apache
-#        exec { "apachex::package apply build_options":
-#          # FIXME: path shouldn't be hardcoded
-#          path        => [ '/sbin', '/bin', '/usr/sbin', '/usr/bin',
-#                           '/usr/local/sbin', '/usr/local/bin' ],
-#          command     => "make config-default ${make_options}",
-#          cwd         => "${package_bsd_ports_dir}/${package_name}",
-#          environment => ['BATCH=y'],
-#          before      => Package['apache2'],
-#          refresh     => Package['apache2'],
-#          creates     => "${package_bsd_port_dbdir}/${bsd_port_dbname}/options",
-#        }
+        validate_hash($build_options)
+        if $ensure_ver {
+          if $ensure_ver[1] >= 4 {
+            if $mpm_shared {
+              $mpm_shared_optval = 'on'
+            } else {
+              $mpm_shared_optval = 'off'
+            }
+            if $mpm {
+              # NOTE: at the time of this writting (aug 06, 2013) www/apache24 
+              # offers only three MPMs: event, prefork and worker
+              validate_re($mpm, '^(event|prefork|worker)$', "mpm=${mpm} is not supported by apache ${ensure} on ${::osfamily}") 
+              $mpm_options = {
+                'MPM_EVENT'   => $mpm ? { 'event' =>'on', default => 'off' },
+                'MPM_PREFORK' => $mpm ? { 'prefork' =>'on', default => 'off' },
+                'MPM_WORKER'  => $mpm ? { 'worker' =>'on', default => 'off' },
+                'MPM_SHARED'  => $mpm_shared_optval,
+              }
+            } else {
+              $mpm_options = {
+                'MPM_EVENT'   => 'off',
+                'MPM_PREFORK' => 'on',
+                'MPM_WORKER'  => 'off',
+                'MPM_SHARED'  => $mpm_shared_optval,
+              }
+            }
+          } else {
+            $mpm_options = {}
+          }
+        } else {
+          $mpm_options = {}
+        }
+        $port_options = merge($mpm_options, $build_options)
+        $port_params = apachex_delete_undefs({
+          portsdir   => $bsd_ports_dir,
+          port_dbdir => $bsd_port_dbdir,
+          options    => $port_options,
+        })
+        create_resources('bsdportconfig', { "${package_name}" => $port_params })
+
+        # NOTE: changes in options are ignored once the apache package is
+        #       installed. We have no possibility to reinstall packages (damn
+        #       you FreeBSD and your ports!). We may try to remove the package,
+        #       set new port configuration and then install it again but it
+        #       won't work in most cases. Once you have installed apache and
+        #       other ports (external apache modules for example) which depend
+        #       on it, ports will refuse to uninstall apache because this would
+        #       broke dependencies. We also have no option to ignore
+        #       dependencies. Uninstalling all the dependent ports is much too
+        #       dangerous.
+        Bsdportconfig["${package_name}"] -> Package['apache2']
       }
       default : {
         fail("Class [apachex::package]: build_options not supported on ${::osfamily} osfamily")
@@ -275,11 +289,12 @@ class apachex::package (
   }
 
 
-  # additioal OS-dependent tricks
+  # Additional OS-dependent tricks
   case $::osfamily {
     'FreeBSD': {
       if $installed_name and $installed_name != $package_name {
-        # remove unwanted package 
+        # FreeBSD/ports can't automatically resolve conflicts, we must
+        # first uninstall colliding package manually.
         ensure_resource('package', $installed_name_version[0], {
           ensure  => absent,
           before  => Package['apache2'],
