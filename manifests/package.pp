@@ -2,22 +2,33 @@
 #
 # This class represents apache package to install on the target OS.
 #
+# **Note**: on FreeBSD we assume, that ports are used to manage apache package.
+# Other providers are not supported. You should either set the default package
+# provider to be +ports+ or set +provider+ parameter here to be +'ports'+.
+# Otherwise your manifests may stop working ($build_options and $mpm will
+# be ignored in best case, worse things can happen in other cases).
+#
 # === Parameters
 #
 # Most parameters are passed directly to the
 # package[http://docs.puppetlabs.com/references/latest/type.html#package]
-# resource, so they have exactly same meaning as for the package resource.
-# Defaults set by +Package { foo => bar }+ are fully honored. Here we mention
-# only the affected package's parameters and new parameters introduced
+# resource, so they have exactly same meaning and syntax as for the package
+# resource. Defaults set by +Package { foo => bar }+ are fully honored. Here we
+# mention only the affected package's parameters and new parameters introduced
 # by +apachex::package+
 #
-# **Note**: on FreeBSD we assume, that ports are used to manage apache package.
-# Other providers are not supported. You should either set the default package
-# provider to be +ports+ or set +provider+ parameter here to be +'ports'+.
-# Otherwise your manifests may stop working.
+#
+#   [*auto_deinstall*]
+#     Some changes, such as changing MPM on FreeBSD/ports, require to
+#     de-install currently installed package (e.g. www/apache22) and
+#     install a new package (e.g. www/apache22-worker-mpm). The
+#     +auto_deinstall+ parameter, if set to true, allows for automatic
+#     de-installation of currently installed apache package when necessary.
+#     By default it is set to +false+, and any de-installation is forced to 
+#     be done manually by user.
 #
 #   [*bsd_ports_dir*]
-#     Relevant only on BSD systems. Defines location of the ports three.
+#     Relevant only on BSD systems. Defines location of the ports tree.
 #     Defaults to +/usr/ports+ on FreeBSD and OpenBSD and +/usr/pkgsrc+ on
 #     NetBSD and to +undef+ on other systems.
 #
@@ -30,7 +41,18 @@
 #     ports packages are built on target machine and are customizable via build
 #     options). The format of this argument depends on the agent's system.
 #
-#     On FreeBSD/ports 
+#     **Note**: On FreeBSD/ports +build_options+ can be applied fully only if
+#     the apache package is initially absent (or is going to be reinstalled 
+#     by puppet due to some other reasons). If apache is already installed
+#     and only the build_options have changed in your manifest, the new options
+#     will be saved to options' file (/var/db/ports/xxx/options), but the
+#     package will not be reinstalled with new configuration (so, still old
+#     configuration will be in use). This behavior may be changed in future.
+#     Currently reinstallation is left to user to be done "manually". In
+#     simplest case it may be done manually by manipulating puppet manifests
+#     as follows: set +ensure=>absent+ for apachex::package, apply your
+#     manifest, then set new +options+ and +ensure+ and apply the manifest
+#     again.
 #
 #   [*ensure*]
 #     This has merely same effect as the *ensure* parameter to the +package+
@@ -111,21 +133,22 @@
 class apachex::package (
   $adminfile = undef,
   $allowcdrom = undef,
+  $auto_deinstall = false,
+  $bsd_port_dbdir = undef,
+  $bsd_ports_dir = undef,
   $build_options = undef,
   $configfiles = undef,
+  $ensure = undef,
   $flavor = undef,
   $install_options = undef,
+  $mpm = undef,
+  $mpm_shared = true,
   $package = undef,
-  $ensure = undef,
   $provider = undef,
   $responsefile = undef,
-  $bsd_ports_dir = undef,
-  $bsd_port_dbdir = undef,
   $root = undef,
   $source = undef,
   $uninstall_options = undef,
-  $mpm = undef,
-  $mpm_shared = true,
 ) {
 
   Class['apachex'] -> Class['apachex::package']
@@ -239,9 +262,10 @@ class apachex::package (
               $mpm_shared_optval = 'off'
             }
             if $mpm {
-              # NOTE: at the time of this writting (aug 06, 2013) www/apache24 
+              # NOTE: at the time of this writing (aug 06, 2013) www/apache24 
               # offers only three MPMs: event, prefork and worker
-              validate_re($mpm, '^(event|prefork|worker)$', "mpm=${mpm} is not supported by apache ${ensure} on ${::osfamily}") 
+              $err_mpm1 = "${mpm} is not an MPM supported by ${package_name}"
+              validate_re($mpm, '^(event|prefork|worker)$', $err_mpm1) 
               $mpm_options = {
                 'MPM_EVENT'   => $mpm ? { 'event' =>'on', default => 'off' },
                 'MPM_PREFORK' => $mpm ? { 'prefork' =>'on', default => 'off' },
@@ -271,15 +295,15 @@ class apachex::package (
         create_resources('bsdportconfig', { "${package_name}" => $port_params })
 
         # NOTE: changes in options are ignored once the apache package is
-        #       installed. We have no possibility to reinstall packages (damn
-        #       you FreeBSD and your ports!). We may try to remove the package,
-        #       set new port configuration and then install it again but it
-        #       won't work in most cases. Once you have installed apache and
-        #       other ports (external apache modules for example) which depend
-        #       on it, ports will refuse to uninstall apache because this would
-        #       broke dependencies. We also have no option to ignore
-        #       dependencies. Uninstalling all the dependent ports is much too
-        #       dangerous.
+        #       installed (and is not going to be uninstalled). We have no
+        #       possibility to reinstall packages (damn you FreeBSD and your
+        #       ports!). We may try to remove the package, set new port
+        #       configuration and then install it again but it won't work in
+        #       most cases. Once you have installed apache and other ports
+        #       (external apache modules for example) which depend on it, ports
+        #       will refuse to uninstall apache because this would broke
+        #       dependencies. We also have no option to ignore dependencies.
+        #       Uninstalling all the dependent ports is much too dangerous.
         Bsdportconfig["${package_name}"] -> Package['apache2']
       }
       default : {
@@ -295,11 +319,17 @@ class apachex::package (
       if $installed_name and $installed_name != $package_name {
         # FreeBSD/ports can't automatically resolve conflicts, we must
         # first uninstall colliding package manually.
-        ensure_resource('package', $installed_name_version[0], {
-          ensure  => absent,
-          before  => Package['apache2'],
-          require => File_line['APACHE_PORT in /etc/make.conf'],
-        })
+        if $auto_deinstall {
+          ensure_resource('package', $installed_name_version[0], {
+            ensure  => absent,
+            before  => Package['apache2'],
+            require => File_line['APACHE_PORT in /etc/make.conf'],
+          })
+        } else {
+          $err_deinst1 ="Can't install ${package_name} because ${installed_name} is already installed"
+          $err_deinst2 ="Either uninstall ${installed_name} manually or set auto_deinstall=>true"
+          fail("Class [apachex::package]: ${err_deinst1}. ${err_deinst2}.")
+        }
       }
       # Configure ports to have apache module packages dependent on correct
       # version of apache package (apache22, apache22-worker-mpm, ...)
