@@ -32,7 +32,7 @@ Decide which version of a package should be installed.
 
 This function takes a package name, a preferred version number and a formatted
 list of available packages and their versions, and selects the best suited
-version. If one, for example, wants 2.2 version apache2, whereas a system
+version. If one, for example, wants 2.2 version of apache2, whereas a system
 repository provides apache2 2.2.1-1 and 2.2.2-1, then 2.2.2-1 will be returned.
 If it's not possible to select version (for example if there is no candidate to
 install), the function returns nil.

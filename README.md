@@ -159,17 +159,36 @@ by `apachex::package`
 
 #### Variables
 
+These variables are required by apachex::package class:
+
   - `::osfamily`
-    Fact from facter
+    fact from facter
 
   - `::operatingsystem`
-    Fact from facter
+    fact from facter
 
-  - `::apachex_installed_version`
-    Fact added by ptomulik-apachex module
+  - `::apachex_installed_version` 
+    fact added by ptomulik-apachex module
 
   - `::apachex_repo_versions`
-    Fact added by ptomulik-apachex module
+    fact added by ptomulik-apachex module
+
+These variables are defined by apachex::package and can be used elsewhere:
+
+  - `apachex::package::actual_name`
+
+    Name of the apache package installed by `apachex::package`. This may be,
+    for example, `apache2` on Debian, `httpd` on RedHat and `www/apache22` on
+    FreeBSD. Once you have included the `apachex::package` class in your
+    manifest, you may read from `apachex::package::actual_name` what is actual
+    name of the installed package (note, that it depends on several factors
+    including agent's OS, MPMs chosen and version of the apache package being
+    installed).
+
+  - `apachex::package::actual_version`
+
+    The version of apache package that is installed or is going to be installed
+    by the `apachex::package` class.
 
 #### Examples
 

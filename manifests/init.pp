@@ -50,4 +50,11 @@ class apachex (
   if $include_package {
     include apachex::package
   }
+  Class['apachex::package'] -> Class['apachex']
+
+
+  file {'/tmp/test2':
+    ensure  => 'file',
+    content => "actual_name: ${apachex::package::actual_name}\nactual_version: ${apachex::package::actual_version}\n",
+  }
 }
