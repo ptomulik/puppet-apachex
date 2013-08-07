@@ -236,9 +236,6 @@ These variables are required by apachex::package class:
   - `::osfamily`
     fact from facter
 
-  - `::operatingsystem`
-    fact from facter
-
   - `::apachex_installed_version` 
     fact added by ptomulik-apachex module
 
