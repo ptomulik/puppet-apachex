@@ -54,11 +54,18 @@ Put the classes, types, and resources for customizing, configuring, and doing th
 
 This class represents apache package to install on the target OS.
 
-**Note**: on FreeBSD we assume, that ports are used to manage apache package.
-Other providers are not supported. You should either set the default package
-provider to be `ports` or set `provider` parameter here to be `ports`.
-Otherwise your manifests may stop working (`$build_options` and `$mpm` will
-be ignored in best case, worse things can happen in other cases).
+**Note**: on Debian we assume, that `apt` or `aptitude` provider is used to
+manage apache package. Other providers are not well supported. You should
+either set the default package provider to be `apt` or `aptitude` or or set
+`provider` parameter here appropriately. Otherwise your manifests may stop
+working (the variables `$apachex::package::actual_name` and
+`$apachex::package::actual_version` may have incorrect values).
+
+**Note**: on FreeBSD we assume, that `ports` provider is used to manage apache
+package. Other providers are not supported. You should either set the default
+package provider to be `ports` or set `provider` parameter here to be `ports`.
+Otherwise your manifests may stop working (`$build_options` and `$mpm` will be
+ignored in best case, worse things can happen in other cases).
 
 #### Parameters
 
@@ -218,7 +225,7 @@ Install for use with `event` MPM, automatically reinstall when necessary
       auto_deinstall => true,
     } 
 
-Install FreeBSD port with additional options enabled:
+Install FreeBSD port of apache with additional options enabled:
 
     class { 'apachex::package':
       mpm => 'worker',

@@ -31,6 +31,7 @@ describe 'apachex::package', :type => :class do
     context "with all parameters default" do
       expect = all_params_absent.clone
       expect['name'] = 'apache2'
+      expect['ensure'] = nil
       it { should contain_package('apache2').with(expect) }
     end
     context "with $ensure=2.2 and available versions #{repo_versions}" do
@@ -55,14 +56,35 @@ describe 'apachex::package', :type => :class do
       expect['ensure']  = 'present'
       it { should contain_package('apache2').with(expect) }
     end
+    context "with $ensure=2.2, $mpm=worker and apache 2.2.16 already installed" do
+      let :params do { 'ensure' => '2.2', 'mpm' => 'worker' } end
+      let :facts do
+        {
+          :osfamily                   => 'Debian',
+          :operatingsystem            => 'Debian',
+          :apachex_repo_versions      => "apache2 #{repo_versions}\napache2-mpm-worker #{repo_versions}",
+          :apachex_installed_version  => 'apache2 2.2.16-6+squeeze10',
+        }
+      end
+      expect = all_params_absent.clone
+      expect['name'] = 'apache2-mpm-worker'
+      expect['ensure'] = 'present'
+      it { should contain_package('apache2').with(expect) }
+    end
   end
 
   context "on a FreeBSD OS" do
+    apachex_repo_versions = "www/apache22 2.2.25\n" + 
+                            "www/apache22-event-mpm 2.2.25\n" +
+                            "www/apache22-itk-mpm 2.2.25\n" +
+                            "www/apache22-peruser-mpm 2.2.25\n" +
+                            "www/apache22-worker-mpm 2.2.25\n" +
+                            "www/apache24 2.4.6\n"
     let(:facts) do
       {
         :osfamily                   => 'FreeBSD',
         :operatingsystem            => 'FreeBSD',
-        :apachex_repo_versions      => nil,
+        :apachex_repo_versions      => apachex_repo_versions,
         :apachex_installed_version  => nil,
       }
     end
@@ -107,7 +129,7 @@ describe 'apachex::package', :type => :class do
           {
             :osfamily                   => 'FreeBSD',
             :operatingsystem            => 'FreeBSD',
-            :apachex_repo_versions      => nil,
+            :apachex_repo_versions      => apachex_repo_versions,
             :apachex_installed_version  => installed,
           }
         end
@@ -134,7 +156,7 @@ describe 'apachex::package', :type => :class do
         {
           :osfamily                   => 'FreeBSD',
           :operatingsystem            => 'FreeBSD',
-          :apachex_repo_versions      => nil,
+          :apachex_repo_versions      => apachex_repo_versions,
           :apachex_installed_version  => nil,
         }
       end
