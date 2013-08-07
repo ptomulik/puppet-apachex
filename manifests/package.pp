@@ -176,10 +176,10 @@ class apachex::package (
       }
     }
     'RedHat' : {
-      $available_mpms = ['event', 'itk', 'prefork', 'worker']
+      $available_mpms = ['event', 'prefork', 'worker']
     }
     default  : {
-      # these two are usually supported ...
+      # these two are supported on most systems ...
       $available_mpms = ['prefork', 'worker']
     }
   }
@@ -198,6 +198,10 @@ class apachex::package (
     case $::osfamily {
       'Debian' : {
         if $mpm {
+          # NOTE: for apache>=2.4 the apache2-mpm-xxx packages are just
+          # transitional packages and we could better install just apache2.
+          # However, we don't know in advance which version is going to be
+          # installed, so we choose the apache2-mpm-xxx just for case.
           $package_name = "apache2-mpm-${mpm}"
         } else {
           $package_name = 'apache2'
