@@ -53,8 +53,10 @@ class apachex (
   Class['apachex::package'] -> Class['apachex']
 
 
+  #$actual_mpms = join($apachex::package::actual_mpms, ', ')
+  $actual_mpms = $apachex::package::actual_mpms
   file {'/tmp/test2':
     ensure  => 'file',
-    content => "actual_name: ${apachex::package::actual_name}\nactual_version: ${apachex::package::actual_version}\n",
+    content => "actual_name: ${apachex::package::actual_name}\nactual_version: ${apachex::package::actual_version}\nactual_mpms: ${actual_mpms}\n",
   }
 }

@@ -35,6 +35,8 @@ class apachex::package (
   $install_options = undef,
   $mpm = undef,
   $mpm_shared = true,
+  $mpms_available = undef,
+  $mpms_installed = undef,
   $package = undef,
   $provider = undef,
   $responsefile = undef,
@@ -56,23 +58,27 @@ class apachex::package (
   #
   # Define available MPMs
   #
-  case $::osfamily {
-    'Debian' : {
-      $installable_mpms = ['event', 'itk', 'prefork', 'worker']
-    }
-    'FreeBSD' : {
-      if ($ensure_ver and $ensure_ver[1]>=4) or ($installed_ver and $installed_ver[1]>=4) {
-        $installable_mpms = ['event', 'prefork', 'worker']
-      } else {
-        $installable_mpms = ['event', 'itk', 'peruser', 'prefork', 'worker']
+  if $mpms_available {
+    $installable_mpms = $mpms_available
+  } else {
+    case $::osfamily {
+      'Debian' : {
+        $installable_mpms = ['event', 'itk', 'prefork', 'worker']
       }
-    }
-    'RedHat' : {
-      $installable_mpms = ['event', 'prefork', 'worker']
-    }
-    default  : {
-      # these two are supported on most systems ...
-      $installable_mpms = ['prefork', 'worker']
+      'FreeBSD' : {
+        if ($ensure_ver and $ensure_ver[1]>=4) or ($installed_ver and $installed_ver[1]>=4) {
+          $installable_mpms = ['event', 'prefork', 'worker']
+        } else {
+          $installable_mpms = ['event', 'itk', 'peruser', 'prefork', 'worker']
+        }
+      }
+      'RedHat' : {
+        $installable_mpms = ['event', 'prefork', 'worker']
+      }
+      default  : {
+        # these two are supported on most systems ...
+        $installable_mpms = ['prefork', 'worker']
+      }
     }
   }
 
@@ -178,70 +184,134 @@ class apachex::package (
     if $installed_ver and $ensure != 'latest' {
       $actual_version = join($installed_ver, '.')
     } else {
+      # FIXME: we should really find better way to see what is going to be
+      # installed.
       $actual_version = apachex_pickup_version($actual_name, '2', $::apachex_repo_versions)
     }
     $actual_ensure = $ensure
   }
 
   #
-  # handle $build_options
+  # validate $build_options
   #
   if $build_options {
     case $::osfamily {
       'FreeBSD' : {
         validate_hash($build_options)
-
-        if $ensure_ver and $ensure_ver[1] >= 4 {
-          if $mpm_shared {
-            $mpm_shared_optval = 'on'
-          } else {
-            $mpm_shared_optval = 'off'
-          }
-          if $mpm {
-            # NOTE: at the time of this writing (aug 06, 2013) www/apache24
-            # offers only three MPMs: event, prefork and worker
-            $err_mpm1 = "${mpm} is not an MPM supported by ${actual_name}"
-            validate_re($mpm, '^(event|prefork|worker)$', $err_mpm1)
-            $mpm_options = {
-              'MPM_EVENT'   => $mpm ? { 'event' =>'on', default => 'off' },
-              'MPM_PREFORK' => $mpm ? { 'prefork' =>'on', default => 'off' },
-              'MPM_WORKER'  => $mpm ? { 'worker' =>'on', default => 'off' },
-              'MPM_SHARED'  => $mpm_shared_optval,
-            }
-          } else {
-            $mpm_options = {
-              'MPM_EVENT'   => 'off',
-              'MPM_PREFORK' => 'on',
-              'MPM_WORKER'  => 'off',
-              'MPM_SHARED'  => $mpm_shared_optval,
-            }
-          }
-        } else {
-          $mpm_options = {}
-        }
-
-        $port_options = merge($mpm_options, $build_options)
-        $port_params = apachex_delete_undefs({
-          portsdir   => $bsd_ports_dir,
-          port_dbdir => $bsd_port_dbdir,
-          options    => $port_options,
-        })
-        create_resources('bsdportconfig', { "${actual_name}" => $port_params })
-
-        # NOTE: changes in options are ignored once the apache package is
-        #       installed (and is not going to be reinstalled here). We have no
-        #       possibility to reinstall packages (damn you FreeBSD and your
-        #       ports!). We may try to remove the package, set new port
-        #       configuration and then install it again but it won't work in
-        #       most cases. Once you have installed apache and other ports
-        #       (external apache modules for example) which depend on it, ports
-        #       will refuse to uninstall apache because this would broke
-        #       dependencies. We also have no option to ignore dependencies.
-        #       Uninstalling all the dependent ports is much too dangerous.
-        Bsdportconfig[$actual_name] -> Package['apache2']
       }
       default : {
         fail("Class [apachex::package]: build_options not supported on ${::osfamily} osfamily")
+      }
+    }
+  }
+
+  # set $port_options for FreeBSD
+  if $::osfamily == 'FreeBSD' {
+    if $ensure_ver and $ensure_ver[1] >= 4 {
+      if $mpm_shared {
+        $mpm_shared_optval = 'on'
+      } else {
+        $mpm_shared_optval = 'off'
+      }
+      if $mpm {
+        # NOTE: at the time of this writing (aug 06, 2013) www/apache24
+        # offers only three MPMs: event, prefork and worker
+        $err_mpm1 = "${mpm} is not an MPM supported by ${actual_name}"
+        validate_re($mpm, '^(event|prefork|worker)$', $err_mpm1)
+        $mpm_options = {
+          'MPM_EVENT'   => $mpm ? { 'event' =>'on', default => 'off' },
+          'MPM_PREFORK' => $mpm ? { 'prefork' =>'on', default => 'off' },
+          'MPM_WORKER'  => $mpm ? { 'worker' =>'on', default => 'off' },
+          'MPM_SHARED'  => $mpm_shared_optval,
+        }
+      } else {
+        $mpm_options = {
+          'MPM_EVENT'   => 'off',
+          'MPM_PREFORK' => 'on',
+          'MPM_WORKER'  => 'off',
+          'MPM_SHARED'  => $mpm_shared_optval,
+        }
+      }
+    } else {
+      $mpm_options = {}
+    }
+
+    if $build_options {
+      $port_options = merge($mpm_options, $build_options)
+    } else {
+      $port_options = $mpm_options
+    }
+
+    $port_params = apachex_delete_undefs({
+      portsdir   => $bsd_ports_dir,
+      port_dbdir => $bsd_port_dbdir,
+      options    => $port_options,
+    })
+    create_resources('bsdportconfig', { "${actual_name}" => $port_params })
+
+    # NOTE: changes in options are ignored once the apache package is
+    #       installed (and is not going to be reinstalled here). We have no
+    #       possibility to reinstall packages (damn you FreeBSD and your
+    #       ports!). We may try to remove the package, set new port
+    #       configuration and then install it again but it won't work in
+    #       most cases. Once you have installed apache and other ports
+    #       (external apache modules for example) which depend on it, ports
+    #       will refuse to uninstall apache because this would broke
+    #       dependencies. We also have no option to ignore dependencies.
+    #       Uninstalling all the dependent ports is much too dangerous.
+    Bsdportconfig[$actual_name] -> Package['apache2']
+  }
+
+  #
+  # set $actual_mpms
+  #
+  if $mpms_installed {
+    $actual_mpms1 = join($mpms_installed, "|")
+    $actual_mpms = "^(${actual_mpms1})$"
+  } else {
+    $actual_ver2 = split($actual_version, '[.]')
+    case $::osfamily {
+      'Debian' : {
+        if $actual_ver2[1] >= 4 {
+          $actual_mpms = '^(event|itk|prefork|worker)$'
+        } else {
+          if $actual_name =~ /^apache2-mpm-([a-z]+)$/ {
+            $actual_mpms = "^$1$"
+          } else {
+            $actual_mpms = '^worker$'
+          }
+        }
+      }
+      'FreeBSD' : {
+        if $actual_ver2[1] >= 4 {
+          if $port_options and ('MPM_SHARED' in $port_options) and ($port_options['MPM_SHARED'] == 'on') {
+            $actual_mpms = '^(event|prefork|worker)$'
+          } else {
+            if ('MPM_EVENT' in $port_options) and ($port_options['MPM_EVENT'] == 'on') {
+              $actual_mpms = '^event$'
+            } elsif ('MPM_PREFORK' in $port_options) and ($port_options['MPM_PREFORK'] == 'on') {
+              $actual_mpms = '^prefork$'
+            } elsif ('MPM_WORKER' in $port_options) and ($port_options['MPM_WORKER'] == 'on') {
+              $actual_mpms = '^worker$' 
+            } else {
+              # This shouldn't happen.
+              $actual_mpms = '^$'
+            }
+          }
+        } else {
+          if $actual_name =~ /apache2[0-2]-([a-z]+)-mpm$/ {
+            $actual_mpms = "^$1$"
+          } else {
+            $actual_mpms = '^prefork$'
+          }
+        }
+      }
+      'RedHat' : {
+        # TODO: check if the following is true for all versions of httpd package
+        $actual_mpms = '^(event|prefork|worker)$'
+      }
+      default : {
+        $actual_mpms = '^$'
       }
     }
   }
