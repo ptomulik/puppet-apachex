@@ -107,24 +107,24 @@ class apachex::package (
       }
       'FreeBSD' : {
         if $ensure_ver {
-          if $mpm and $ensure_ver[1] < 4 {
+          if !$mpm or $ensure_ver[1] >= 4 {
+            $actual_name = "www/apache2${ensure_ver[1]}"
+          } else {
             $actual_name = $mpm ? {
               prefork => "www/apache2${ensure_ver[1]}",
               default => "www/apache2${ensure_ver[1]}-${mpm}-mpm"
             }
-          } else {
-            $actual_name = "www/apache2${ensure_ver[1]}"
           }
         } elsif $installed_ver {
           # we can't simply do $actual_name = $installed_name
           # because this would ignore changes in $mpm.
-          if $mpm and $installed_ver[1] < 4 {
+          if !$mpm or $installed_ver[1] >= 4 {
+            $actual_name = "www/apache2${installed_ver[1]}"
+          } else {
             $actual_name = $mpm ? {
               prefork => "www/apache2${installed_ver[1]}",
               default => "www/apache2${installed_ver[1]}-${mpm}-mpm"
             }
-          } else {
-            $actual_name = "www/apache2${installed_ver[1]}"
           }
         } else {
           if $mpm {
