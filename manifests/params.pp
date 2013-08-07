@@ -33,10 +33,4 @@
 # Copyright 2013 Pawel Tomulik.
 #
 class apachex::params {
-  $available_mpms = $::osfamily ? {
-    'Debian'  => [ 'event', 'itk', 'peruser', 'prefork', 'worker' ],
-    'FreeBSD' => [ 'event', 'itk', 'prefork', 'worker' ],
-    'RedHat'  => [ 'event', 'itk', 'prefork', 'worker' ],
-    default   => [ ]
-  }
 }

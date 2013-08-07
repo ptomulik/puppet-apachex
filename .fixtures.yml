@@ -2,5 +2,6 @@ fixtures:
   repositories:
     stdlib: "git://github.com/puppetlabs/puppetlabs-stdlib.git"
     concat: "git://github.com/ripienaar/puppet-concat.git"
+    bsdportconfig: "git://github.com/ptomulik/puppet-bsdportconfig.git"
   symlinks:
     apachex: "#{source_dir}"

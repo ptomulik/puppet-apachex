@@ -45,11 +45,8 @@
 # Copyright 2013 Pawel Tomulik.
 #
 class apachex (
-  $available_mpms   = $apachex::params::available_mpms,
   $include_package  = true,
 ) inherits apachex::params {
-  Class['Apachex::Params'] -> Class['Apachex']
-
   if $include_package {
     include apachex::package
   }

@@ -73,19 +73,23 @@ describe 'apachex::package', :type => :class do
     end
 
     [
-      # $ensure, $mpm, $installed, $package_name, $package_ensure
-      [  nil,   nil,        'www/apache24 2.4.6',  'www/apache24', nil ],
-      ['2.2',   nil,        nil,                   'www/apache22', 'present' ],
-      ['2.4',   nil,        nil,                   'www/apache24', 'present' ],
-      ['2.4',   nil,        'www/apache24 2.4.6',  'www/apache24', 'present' ],
-      ['2.2',   nil,        'www/apache24 2.4.6',  'www/apache22', 'present' ],
-      [  nil,   'prefork',  'www/apache22 2.2.13', 'www/apache22', nil ],
-      [  nil,   'worker',   'www/apache22 2.2.13', 'www/apache22-worker-mpm', nil ],
-      [  nil,   'prefork',  'www/apache24 2.4.6',  'www/apache24', nil ],
-      [  nil,   'worker',   'www/apache24 2.4.6',  'www/apache24', nil ],
+     # $ensure, $mpm,       $installed,            $package_name,              $package_ensure
+      [  nil,   nil,        'www/apache24 2.4.6',  'www/apache24',             nil ],
+      ['2.2',   nil,        nil,                   'www/apache22',             'present' ],
+      ['2.4',   nil,        nil,                   'www/apache24',             'present' ],
+      ['2.4',   nil,        'www/apache24 2.4.6',  'www/apache24',             'present' ],
+      ['2.2',   nil,        'www/apache24 2.4.6',  'www/apache22',             'present' ],
+      [  nil,   'event',    'www/apache22 2.2.13', 'www/apache22-event-mpm',   nil ],
+      [  nil,   'itk',      'www/apache22 2.2.13', 'www/apache22-itk-mpm',     nil ],
+      [  nil,   'peruser',  'www/apache22 2.2.13', 'www/apache22-peruser-mpm', nil ],
+      [  nil,   'prefork',  'www/apache22-worker-mpm 2.2.13', 'www/apache22',  nil ],
+      [  nil,   'worker',   'www/apache22 2.2.13', 'www/apache22-worker-mpm',  nil ],
+      [  nil,   'event',    'www/apache24 2.4.6',  'www/apache24',             nil ],
+      [  nil,   'prefork',  'www/apache24 2.4.6',  'www/apache24',             nil ],
+      [  nil,   'worker',   'www/apache24 2.4.6',  'www/apache24',             nil ],
       ['2.2',   'itk',      'www/apache22-worker-mpm 2.2.13',  'www/apache22-itk-mpm', 'present' ],
     ].each do |args|
-      params            = {}
+      params            = { :auto_deinstall => true }
       params['ensure']  = args[0] if not args[0].nil?
       params['mpm']     = args[1] if not args[1].nil?
       installed         = args[2]
@@ -125,30 +129,19 @@ describe 'apachex::package', :type => :class do
       end
     end
 
-     # TODO: implement this test correctly
-#    context 'with $build_options={\'--SUEXEC\'=>\'on\'}' do
-#      let :facts do
-#        {
-#          :osfamily                   => 'FreeBSD',
-#          :operatingsystem            => 'FreeBSD',
-#          :apachex_repo_versions      => nil,
-#          :apachex_installed_version  => nil,
-#        }
-#      end
-#      let :params do { :build_options => {'--SUEXEC' => 'on' } } end
-#      exec_name = 'apachex::package apply build_options'
-#      exec_params = {
-#          'path'        => [ '/sbin', '/bin', '/usr/sbin', '/usr/bin',
-#                             '/usr/local/sbin', '/usr/local/bin' ],
-#          'command'     => "make config-default --SUEXEC=on",
-#          'cwd'         => "/usr/ports/www/apache22",
-#          'environment' => ['BATCH=y'],
-#          'before'      => Package['apache2'],
-#          'notify'      => Package['apache2'],
-#          'creates'     => '/var/db/ports/www_apache22/options'
-#      }
-#      it { should contain_exec(exec_name).with(exec_params) }
-#    end
+    context 'with build_options => {\'SUEXEC\'=>\'on\'}' do
+      let :facts do
+        {
+          :osfamily                   => 'FreeBSD',
+          :operatingsystem            => 'FreeBSD',
+          :apachex_repo_versions      => nil,
+          :apachex_installed_version  => nil,
+        }
+      end
+      let :params do { :build_options => { 'SUEXEC' => 'on' } } end
+      expect = { 'options' => {'SUEXEC' => 'on' } }
+      it { should contain_bsdportconfig('www/apache22').with(expect) }
+    end
   end
 
   context "on a RedHat OS" do

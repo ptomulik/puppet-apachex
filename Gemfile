@@ -7,7 +7,7 @@ group :development, :test do
 #  gem 'serverspec',              :require => false                              
 #  gem 'rspec-system',            :require => false                              
   gem 'rspec-system-puppet'
-#  gem 'rspec-system-serverspec', :require => false                              
+  gem 'rspec-system-serverspec', :require => false                              
 #  gem 'puppet-lint'
 end                                                                             
 

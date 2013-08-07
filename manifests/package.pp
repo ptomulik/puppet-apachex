@@ -24,7 +24,7 @@
 #     install a new package (e.g. www/apache22-worker-mpm). The
 #     +auto_deinstall+ parameter, if set to true, allows for automatic
 #     de-installation of currently installed apache package when necessary.
-#     By default it is set to +false+, and any de-installation is forced to 
+#     By default it is set to +false+, and any de-installation is forced to
 #     be done manually by user.
 #
 #   [*bsd_ports_dir*]
@@ -42,7 +42,7 @@
 #     options). The format of this argument depends on the agent's system.
 #
 #     **Note**: On FreeBSD/ports +build_options+ can be applied fully only if
-#     the apache package is initially absent (or is going to be reinstalled 
+#     the apache package is initially absent (or is going to be reinstalled
 #     by puppet due to some other reasons). If apache is already installed
 #     and only the build_options have changed in your manifest, the new options
 #     will be saved to options' file (/var/db/ports/xxx/options), but the
@@ -151,12 +151,6 @@ class apachex::package (
   $uninstall_options = undef,
 ) {
 
-  Class['apachex'] -> Class['apachex::package']
-
-  if $mpm and !($mpm in $apachex::available_mpms) {
-    fail("Class [apachex::package]: MPM '${mpm}' is not available on this platform")
-  }
-
   if $ensure and $ensure =~ /^2\.[0-9]+$/ {
     $ensure_ver = split($ensure, '[.]')
   }
@@ -167,13 +161,47 @@ class apachex::package (
     $installed_ver = split($installed_name_version[1], '[.]')
   }
 
+  #
+  # Define available MPMs
+  #
+  case $::osfamily {
+    'Debian' : {
+      $available_mpms = ['event', 'itk', 'prefork', 'worker']
+    }
+    'FreeBSD' : {
+      if ($ensure_ver and $ensure_ver[1]>=4) or ($installed_ver and $installed_ver[1]>=4) {
+        $available_mpms = ['event', 'prefork', 'worker']
+      } else {
+        $available_mpms = ['event', 'itk', 'peruser', 'prefork', 'worker']
+      }
+    }
+    'RedHat' : {
+      $available_mpms = ['event', 'itk', 'prefork', 'worker']
+    }
+    default  : {
+      # these two are usually supported ...
+      $available_mpms = ['prefork', 'worker']
+    }
+  }
+
+  if $mpm and !($mpm in $available_mpms) {
+    fail("Class [apachex::package]: ${mpm} MPM is not available.")
+  }
+
+
+  #
   # set $package_name
+  #
   if $package {
     $package_name = $package
   } else {
     case $::osfamily {
       'Debian' : {
-        $package_name = 'apache2'
+        if $mpm {
+          $package_name = "apache2-mpm-${mpm}"
+        } else {
+          $package_name = 'apache2'
+        }
       }
       'FreeBSD' : {
         if $ensure_ver {
@@ -187,7 +215,7 @@ class apachex::package (
           }
         } elsif $installed_ver {
           # we can't simply do $package_name = $installed_name
-          # because this would ignore changes in $mpm. 
+          # because this would ignore changes in $mpm.
           if $mpm and $installed_ver[1] < 4 {
             $package_name = $mpm ? {
               prefork => "www/apache2${installed_ver[1]}",
@@ -195,16 +223,15 @@ class apachex::package (
             }
           } else {
             $package_name = "www/apache2${installed_ver[1]}"
-            # TODO: select appropriate MPM or dynamic MPM in port options
           }
         } else {
           if $mpm {
             $package_name = $mpm ? {
-              prefork => "www/apache22",
+              prefork => 'www/apache22',
               default => "www/apache22-${mpm}-mpm"
             }
           } else {
-            $package_name = "www/apache22"
+            $package_name = 'www/apache22'
           }
         }
       }
@@ -217,11 +244,13 @@ class apachex::package (
     }
   }
 
+  #
   # set $package_ensure
+  #
   if $ensure_ver {
     if $installed_ver and $installed_ver[0] == $ensure_ver[0] and $installed_ver[1] == $ensure_ver[1] {
       # keep installed package in current version, as it generally matches
-      # $ensure (2.X form); 
+      # $ensure (2.X form);
       $package_ensure = present
     } else {
       case $::osfamily {
@@ -232,8 +261,8 @@ class apachex::package (
           }
         }
         'FreeBSD' : {
-          # we don't have versionable providers on FreeBSD, sorry;
-          # the $package_name shall switch between apache 2.2, 2.4, etc.
+          # we don't have versionable providers on FreeBSD, sorry; the
+          # $package_name shall switch between www/apache22, www/apache24, etc.
           $package_ensure = present
           # FIXME: it would be good to check if there is $package_name in repo,
           #        and eventually fail here (before we uninstall current
@@ -249,43 +278,43 @@ class apachex::package (
     $package_ensure = $ensure
   }
 
+  #
   # handle $build_options
+  #
   if $build_options {
     case $::osfamily {
       'FreeBSD' : {
         validate_hash($build_options)
-        if $ensure_ver {
-          if $ensure_ver[1] >= 4 {
-            if $mpm_shared {
-              $mpm_shared_optval = 'on'
-            } else {
-              $mpm_shared_optval = 'off'
-            }
-            if $mpm {
-              # NOTE: at the time of this writing (aug 06, 2013) www/apache24 
-              # offers only three MPMs: event, prefork and worker
-              $err_mpm1 = "${mpm} is not an MPM supported by ${package_name}"
-              validate_re($mpm, '^(event|prefork|worker)$', $err_mpm1) 
-              $mpm_options = {
-                'MPM_EVENT'   => $mpm ? { 'event' =>'on', default => 'off' },
-                'MPM_PREFORK' => $mpm ? { 'prefork' =>'on', default => 'off' },
-                'MPM_WORKER'  => $mpm ? { 'worker' =>'on', default => 'off' },
-                'MPM_SHARED'  => $mpm_shared_optval,
-              }
-            } else {
-              $mpm_options = {
-                'MPM_EVENT'   => 'off',
-                'MPM_PREFORK' => 'on',
-                'MPM_WORKER'  => 'off',
-                'MPM_SHARED'  => $mpm_shared_optval,
-              }
+
+        if $ensure_ver and $ensure_ver[1] >= 4 {
+          if $mpm_shared {
+            $mpm_shared_optval = 'on'
+          } else {
+            $mpm_shared_optval = 'off'
+          }
+          if $mpm {
+            # NOTE: at the time of this writing (aug 06, 2013) www/apache24
+            # offers only three MPMs: event, prefork and worker
+            $err_mpm1 = "${mpm} is not an MPM supported by ${package_name}"
+            validate_re($mpm, '^(event|prefork|worker)$', $err_mpm1)
+            $mpm_options = {
+              'MPM_EVENT'   => $mpm ? { 'event' =>'on', default => 'off' },
+              'MPM_PREFORK' => $mpm ? { 'prefork' =>'on', default => 'off' },
+              'MPM_WORKER'  => $mpm ? { 'worker' =>'on', default => 'off' },
+              'MPM_SHARED'  => $mpm_shared_optval,
             }
           } else {
-            $mpm_options = {}
+            $mpm_options = {
+              'MPM_EVENT'   => 'off',
+              'MPM_PREFORK' => 'on',
+              'MPM_WORKER'  => 'off',
+              'MPM_SHARED'  => $mpm_shared_optval,
+            }
           }
         } else {
           $mpm_options = {}
         }
+
         $port_options = merge($mpm_options, $build_options)
         $port_params = apachex_delete_undefs({
           portsdir   => $bsd_ports_dir,
@@ -304,7 +333,7 @@ class apachex::package (
         #       will refuse to uninstall apache because this would broke
         #       dependencies. We also have no option to ignore dependencies.
         #       Uninstalling all the dependent ports is much too dangerous.
-        Bsdportconfig["${package_name}"] -> Package['apache2']
+        Bsdportconfig[$package_name] -> Package['apache2']
       }
       default : {
         fail("Class [apachex::package]: build_options not supported on ${::osfamily} osfamily")
@@ -312,8 +341,7 @@ class apachex::package (
     }
   }
 
-
-  # Additional OS-dependent tricks
+  # Additional OS-dependent hacks
   case $::osfamily {
     'FreeBSD': {
       if $installed_name and $installed_name != $package_name {
@@ -333,15 +361,16 @@ class apachex::package (
       }
       # Configure ports to have apache module packages dependent on correct
       # version of apache package (apache22, apache22-worker-mpm, ...)
+      $apache_port_line_ensure = $package_ensure ? {
+        'absent' => 'absent',
+        'purged' => 'absent',
+        default  => 'present'
+      }
       file_line { 'APACHE_PORT in /etc/make.conf':
-        ensure => $package_ensure ? {
-          'absent' => 'absent',
-          'purged' => 'absent',
-          default  => 'present'
-        },
+        ensure => $apache_port_line_ensure,
         path   => '/etc/make.conf',
         line   => "APACHE_PORT=${package_name}",
-        match  => "^\\s*#?\\s*APACHE_PORT\\s*=\\s*",
+        match  => '^\s*#?\s*APACHE_PORT\s*=\s*',
         before => Package['apache2'],
       }
     }
