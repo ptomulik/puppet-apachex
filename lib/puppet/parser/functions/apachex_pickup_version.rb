@@ -1,74 +1,49 @@
-require 'puppet/util/package'
-def pickup_version(package, version, repo_versions)
-  version = version.split('.')
-  vsize = version.size
-
-  candidates = []
-  repo_versions.lines.each do |line|
-    fields = line.split(/\s+/)
-    if fields.size() >= 2 and fields[0] == package
-      fields[1..fields.size].each do |repover_string|
-        repover = repover_string.split('.')
-        return version if version == repover
-        if vsize < repover.size and version == repover[0..(vsize-1)]
-          candidates.push(repover_string)
-        end
-      end
-    end
-  end
-
-  current = nil
-  candidates.each do |candidate|
-    if current.nil? or Puppet::Util::Package.versioncmp(candidate, current) > 0
-      current = candidate
-    end
-  end
-  return current
-end
-
+require 'facter/util/ptomulik/apachex'
 module Puppet::Parser::Functions
-  newfunction(:apachex_pickup_version, :type => :rvalue, :doc => <<-EOS
-Decide which version of a package should be installed.
+  newfunction(:apachex_pickup_version, :type => :rvalue, :doc => <<-EOT
+    Decide which version of an apache package should be installed.
 
-This function takes a package name, a preferred version number and a formatted
-list of available packages and their versions, and selects the best suited
-version. If one, for example, wants 2.2 version of apache2, whereas a system
-repository provides apache2 2.2.1-1 and 2.2.2-1, then 2.2.2-1 will be returned.
-If it's not possible to select version (for example if there is no candidate to
-install), the function returns nil.
+    This function takes a package name, a preferred version number and a
+    formatted list of available packages and their versions, and selects the
+    best suited version. If one, for example, wants 2.2 version of apache2,
+    whereas a system repository provides apache2 2.2.1-1 and 2.2.2-1, then
+    2.2.2-1 will be returned.
 
-*Example:*
-    
-    $ver = apachex_pickup_version('apache2', '2.2', $::apachex_repo_versions)
+    If it's not possible to select version (for example if there is no
+    candidate to install), the function returns nil.
 
-The first argument contains package name. The second argument contains
-preffered version of the package. The third argument contains is a string 
-describing available packages and their versions:
+    *Example:*
+        
+        $ver = apachex_pickup_version('apache2', '2.2', $::apachex_repo_versions)
 
-  package1 ver1 ver2 ...
-  package2 ver1 ver2 ...
+    The first argument contains package name. The second argument contains
+    preffered version of the package. The third argument contains is a string 
+    describing available packages and their versions:
 
-The third argument may also be nil or :undef. 
+      package1 ver1 ver2 ...
+      package2 ver1 ver2 ...
 
-Returns nil, if no matching version can be found.
+    The third argument may also be nil or :undef. 
 
-      EOS
+    Returns nil, if no matching version can be found.
+  EOT
   ) do |args|
 
-    raise(Puppet::ParseError,
-          "apachex_pickup_version(): Wrong number of arguments given " +
-          "(#{args.size})") if args.size < 3
+    if (args.size < 3) or (args.size > 4)
+      raise Puppet::ParseError, "apachex_pickup_version(): Wrong number of " +
+        "arguments given (#{args.size} for 3)"
+    end
 
     return nil if args[2].nil? or args[2].equal?(:undef)
 
     n = 1
     args.each do |arg|
       raise(Puppet::ParseError, 
-            "apachex_pickup_version(): Wrong argument type #{args.class} " +
+            "apachex_pickup_version(): Wrong argument type #{arg.class} " +
             "for argument #{n}") if not arg.is_a?(String)
       n = n +1
     end
 
-    return pickup_version(args[0], args[1], args[2])
+    Facter::Util::PTomulik::Apachex.pickup_version(*args)
   end
 end

@@ -25,5 +25,6 @@ RSpec.configure do |c|
     shell('puppet module install ripienaar-concat')
     shell('puppet module install puppetlabs-stdlib')
     shell('puppet module install ptomulik-bsdportconfig')
+    shell('puppet module install ptomulik-repoutil')
   end
 end

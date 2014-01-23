@@ -351,7 +351,7 @@ class apachex::package (
     }
   }
 
-  $all_params = {
+  $_all_attribs = {
     adminfile         => $adminfile,
     allowcdrom        => $allowcdrom,
     configfiles       => $configfiles,
@@ -365,6 +365,6 @@ class apachex::package (
     source            => $source,
     uninstall_options => $uninstall_options,
   }
-  $params = apachex_delete_undefs($all_params)
-  create_resources('package', {'apache2' => $params})
+  $_attribs = apachex_delete_undef_values($_all_attribs)
+  create_resources(package, {'apache2' => $_attribs})
 }

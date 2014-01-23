@@ -1,0 +1,30 @@
+1. Apache instance. Ingredients:
+  * identifier /^[a-z][a-z0-9_]+/,
+  * instance of running apache daemon,
+  * user who runs the instance,
+  * entry in /etc/rc.conf (or appropriate system-wide config file),
+  * own httpd.conf file (in separate subdirectory, for example),
+  * lock file, mutex and whatever (need to study),
+  * list of loaded modules (to define available directives),
+2. Module. Ingredients:
+  * name,
+  * directives,
+3. Directive. Ingredients:
+  * name,
+  * type (section?),
+  * syntax,
+  * contextlist,
+4. Section. Ingredients:
+  * name,
+  * context (what context it pushes into context stack, if any),
+5. Context stack. A context is simply a string. They're pushed into context
+  stack by sections.
+
+NOTE 1: In apache, a section is just a special type of directive.
+NOTE 2: Directives are case insensitive in apache.
+NOTE 3: Need to handle compiled-in modules (i.e. these without LoadModule).
+
+Patterns:
+
+1. Directives: "object pool", that is a hash with directive name as key,
+2. Sections: subset of directives - 

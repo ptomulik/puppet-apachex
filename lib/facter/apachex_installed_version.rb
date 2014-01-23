@@ -1,30 +1,8 @@
-require 'puppet/resource'
+require 'facter/util/ptomulik/apachex'
 
 Facter.add(:apachex_installed_version, :timeout => 20) do
   setcode do
-    package_version = nil
-    case Facter.value(:osfamily)
-    when /Debian/
-      names = ['apache2']
-    when /FreeBSD/
-      names =  [
-        'www/apache22',
-        'www/apache22-event-mpm',
-        'www/apache22-itk-mpm',
-        'www/apache22-peruser-mpm',
-        'www/apache22-worker-mpm',
-        'www/apache24'
-      ]
-    when /RedHat/
-      names = ['httpd']
-    end
-    names.each do |name|
-      package = Puppet::Resource.indirection.find("package/#{name}")
-      if package.is_a? Puppet::Resource and package[:ensure] =~ /^[0-9]+\./
-        package_version = "#{name} #{package[:ensure]}"
-        break
-      end
-    end
-    package_version
+    osfamily = Facter.value(:osfamily)
+    Facter::Util::PTomulik::Apachex.installed_version(osfamily).to_pson
   end
 end

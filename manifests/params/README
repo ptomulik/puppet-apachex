@@ -1,0 +1,8 @@
+When adding new default parameter, let say 'myparam' copy template.pp to
+myparam.pp, and modify it to your needs. After that modify
+spec/unit/classes/defaults_spec.rb.
+
+When adding support for new OS, first extend template.pp by adding new entry to
+its hash, then walk through all other *.pp files in this directory and add
+appropriate lines (should be easy). Please keep OS-specific lines in
+alphabetical order.

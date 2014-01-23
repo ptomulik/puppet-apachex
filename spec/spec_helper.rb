@@ -1,16 +1,13 @@
-#dir = File.expand_path(File.dirname(__FILE__))
-#$LOAD_PATH.unshift File.join(dir, 'lib')
+if RUBY_VERSION >= '1.9'
+  require 'coveralls'
+  Coveralls.wear! do
+    add_filter 'spec/'
+    add_filter 'lib/puppet/provider/packagex.rb'
+    add_filter 'lib/puppet/provider/packagex/openbsd.rb'
+    add_filter 'lib/puppet/provider/packagex/freebsd.rb'
+  end
+end
 
-# Don't want puppet getting the command line arguments for rake or autotest
-#ARGV.clear
-
-#require 'puppet'
-#require 'facter'
-#require 'mocha/api'
-#gem 'rspec', '>=2.0.0'
-#require 'rspec/expectations'
-
-require 'rubygems'
 require 'puppetlabs_spec_helper/module_spec_helper'
 
 RSpec.configure do |config|
@@ -27,3 +24,8 @@ RSpec.configure do |config|
     Facter.clear_messages
   end
 end
+
+# This module depends on:
+#   - ptomulik/repoutil
+mod_path = RSpec.configuration.module_path
+$LOAD_PATH.unshift(File.join(mod_path,'repoutil/lib'))

@@ -8,7 +8,12 @@ group :development, :test do
 #  gem 'rspec-system',            :require => false                              
   gem 'rspec-system-puppet'
   gem 'rspec-system-serverspec', :require => false                              
-#  gem 'puppet-lint'
+  if RUBY_VERSION >= '1.9'
+    gem 'coveralls', :require => false
+    gem 'yard'
+    gem 'redcarpet'
+  end
+  gem 'puppet-lint'
 end                                                                             
 
 if puppetversion = ENV['PUPPET_GEM_VERSION']                                    
